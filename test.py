@@ -22,9 +22,9 @@ base_dir = '{}-{}-{}-{}'.format(executor, health_checker, protocol, num_nodes)
 step = 10
 
 # HTTP config
-base = 'https://35.165.141.114/marathon'
+base = 'https://ken-3fqyd-elasticl-1joi109afqfod-1807274520.us-west-2.elb.amazonaws.com/marathon'
 headers = {
-        'Authorization': 'token=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJleHAiOjE0ODIzMzUwNjAsInVpZCI6ImJvb3RzdHJhcHVzZXIifQ.MG4kqnwS2orDx0XkwzvvZgUSWI0EEp8CswCNkaDTDl_XKFTO6G_lsazYwpM17aHK1UFT3e7y3HOLQgfFevTTrjckhM0mm2C-jCew8rDJ_cOJ_Hkv19Xgnt1gS5Y2_LKoc-ngugk-2_5HzA2Qf5UrUwRuiMKjAO2K-Kt_O-isGuNqsIOqX2ZsTYuMu5zyB19iQWMpDJFlbSLjUf5H7ORUDD435QgYUVA7G_qgkC78be4SEdjGD3BD9K8K6Dxa2HKlj6qZRKNsvpZyG3nhGIZI0dwAzaSNmGqyNMR-vVi0LLuxBaBlnKiu1Iz_227zf0OtC6iKQPNnLaILVt1SLY79Kg',
+        'Authorization': 'token=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJ1aWQiOiJib290c3RyYXB1c2VyIiwiZXhwIjoxNTQ2OTgyNTY4fQ.BeH7IuyVDAGFxnzyFllpxJ33iokuMmJJhRCoqR43XWoedHC3O6TsH4FOtc_L4Dw9zs15aLWHZO4YSA4ZrWyT762yb6BPOAVOeLgwwZhKTcg_979lvFW6Sn0KkqM7pO4Ek-dHV3TOnh3XWV1ThPlvSVS4P87ihhRc4fkufTdvVOPAX-YcPPhNSKWXJzhZBdEKTELEP9LtMShn-KGhznLGkE8dcnTD1BWc5BIe2yXkXuwPCSeWZsT_1w9kVgumujBjvxB-KkyiymBGG5QFXNCYO1Fmf109rJFMgALs-zWoB1Ygh_lJ2GjktWT5uRiQm7TV4ynwrvZ-gGd39AEMJ-VZaw',
         'Content-Type': 'application/json',
         'Accept': 'application/json'
         }
@@ -58,60 +58,94 @@ shutting_down = False
 
 
 def scale_to(instances, time_delta, force=False):
-    print '==================================='
-    print 'Time: {} - Scaling to {}'.format(time_delta, instances)
-    print '==================================='
-    print
+    print('===================================')
+    print('Time: {} - Scaling to {}'.format(time_delta, instances))
+    print('===================================')
+    print()
 
-    url = '{}/v2/apps/hc'.format(base)
+    app = fetch_app()
 
-    payload = {'instances': instances}
+    app["scaling"]["instances"] = instances
+
+    url = '{}/v2/pods/hc'.format(base)
 
     params = {'force': 'true' if force else 'false'}
 
-    r = requests.put(url, headers=headers, params=params, json=payload, verify=False)
+    r = requests.put(url, headers=headers, params=params, json=app, verify=False)
 
     r.raise_for_status()
 
 
 def fetch_app():
-    url = '{}/v2/apps/hc'.format(base)
-    params = {'embed': ['apps.deployments', 'apps.tasks']}
+    url = '{}/v2/pods/hc'.format(base)
+    params = {}
 
     r = requests.get(url, headers=headers, params=params, verify=False)
 
     r.raise_for_status()
 
-    return r.json()['app']
+    return r.json()
+
+
+def fetch_app_status():
+    url = '{}/v2/pods/hc::status'.format(base)
+    params = {}
+
+    r = requests.get(url, headers=headers, params=params, verify=False)
+
+    r.raise_for_status()
+
+    return r.json()
+
+
+def fetch_deployments():
+    url = '{}/v2/deployments'.format(base)
+    params = {}
+
+    r = requests.get(url, headers=headers, params=params, verify=False)
+
+    r.raise_for_status()
+
+    return r.json()
 
 
 def task_status(task):
-    if task['state'] == 'TASK_RUNNING':
+    # TODO(KGS): Need to see how we can get this out of pods
+    # if task['status'] == 'TASK_RUNNING':
         # Task running
-        if 'healthCheckResults' in task:
-            if task['healthCheckResults'][0]['alive']:
-                return 'TASK_HEALTHY'
-            else:
-                return 'TASK_UNHEALTHY'
+        # if 'healthCheckResults' in task:
+        #     if task['healthCheckResults'][0]['alive']:
+        #         return 'TASK_HEALTHY'
+        #     else:
+        #         return 'TASK_UNHEALTHY'
+    return task['status']
 
-    return task['state']
+
+def pods_to_containers(tasks):
+    c = []
+    for task in tasks:
+        for containers in task["containers"]:
+            c.append(containers)
+    return c
 
 
 def print_task_summary(app, time_delta):
-    tasks = app['tasks']
-    instances = app['instances']
 
-    print 'Time: {}\tTasks: {}/{}'.format(time_delta, len(tasks), instances)
-    print '==================================='
+    tasks = app['instances']
+    instances = app["spec"]["scaling"]["instances"]
 
-    tasks_by_state = itertools.groupby(sorted(tasks, key=task_status), key=task_status)
+    containers = pods_to_containers(tasks)
+    print('Time: {}\tTasks: {}/{}'.format(time_delta, len(containers), instances))
+    print('===================================')    
+    # commented until we find a solution for groupby for pods
+    tasks_by_state = itertools.groupby(sorted(containers, key=task_status), key=task_status)
 
     for state, taskIter in tasks_by_state:
         tasks = list(taskIter)
-        print '{}\t{}/{}'.format(state, len(tasks), instances)
+        print ('{}\t{}/{}'.format(state, len(tasks), instances))
 
-    print '==================================='
-    print
+    print ('===================================')
+    print()
 
 
 def process_results(app):
@@ -185,6 +219,7 @@ It will:
 def main_loop():
     global start_time
 
+    app = fetch_app()
     scale_down()
 
     start_time = time.time()
@@ -194,19 +229,20 @@ def main_loop():
         time_delta = int(time.time() - start_time)
 
         try:
-            app = fetch_app()
+            app = fetch_app_status()
 
-            if not app['deployments']:
+            if app["spec"]["scaling"]["instances"] == len(app["instances"]) and len(fetch_deployments()) == 0:
                 target = target + step
                 scale_to(target, time_delta)
 
             print_task_summary(app, time_delta)
-            if not shutting_down:
-                process_results(app)
-                plot(time_delta)
-                dump_app(app, time_delta)
+            # if not shutting_down:
+                # next 3 lines use intertools / matplotlib which isn't set for pods
+                # process_results(app)
+                # plot(time_delta)
+                # dump_app(app, time_delta)
         except Exception as err:
-            print err
+            print(err)
 
 
 """Scale down to 0 instances and wait for the deployment to complete.
@@ -219,15 +255,19 @@ def scale_down():
     time_delta = int(time.time() - start_time)
 
     deploymentId = scale_to(0, time_delta, True)
+
+    deployments = fetch_deployments()
+    app = fetch_app_status()
+
     time.sleep(1)
 
-    app = fetch_app()
-    while app['deployments']:
+    app = fetch_app_status()
+    while app["spec"]["scaling"]["instances"] > len(app["instances"]) and len(fetch_deployments()) == 0:
         time_delta = int(time.time() - start_time)
         print_task_summary(app, time_delta)
 
         time.sleep(1)
-        app = fetch_app()
+        app = fetch_app_status()
 
 
 def handler(signum, frame):

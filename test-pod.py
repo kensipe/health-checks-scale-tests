@@ -12,6 +12,7 @@ import time
 
 from matplotlib.font_manager import FontProperties
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from subprocess import Popen, PIPE
 
 # Misc config
 executor = 'mesos'
@@ -22,9 +23,11 @@ base_dir = '{}-{}-{}-{}'.format(executor, health_checker, protocol, num_nodes)
 step = 10
 
 # HTTP config
-base = 'https://ken-pa7j7-elasticl-1kkkp79l7yxkl-1962471760.us-west-2.elb.amazonaws.com/marathon'
+default_base = 'https://ken-pa7j7-elasticl-1kkkp79l7yxkl-1962471760.us-west-2.elb.amazonaws.com/marathon'
+default_auth = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJ1aWQiOiJib290c3RyYXB1c2VyIiwiZXhwIjoxNTQ3MDQ2NDIxfQ.aprYDxU4Dtw9a4QBx94ITYC4dmwgMAdGyKzevle493wO5x53k6AN1ghdiklWcc--mcz-WkWmt4f3h5TskbqIm5t8cNK3ttwUKd3RvNMBTCtZMJRY4EOA8msYAUhs4vKaVhF9pzZup508A5jGaSnp5iYv_xKHx_0BuKdQFoHFMRRDte3kBK-1imb3l2CXgkDX2bwsPkNALZWSNNfXzMqX6SrSqhxtB2eOthctjknlncTumycm8EOxmux_1NiKVzcxEpV74rE1pzcvDmabKWW6SvnrW9K3TXdrpUdzsyKxfp-2N2Zso3zXb1FzXAPhOmw2Jb2RFbr0pGZIUHx_hmw4EQ'
+base = ''
 headers = {
-        'Authorization': 'token=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJ1aWQiOiJib290c3RyYXB1c2VyIiwiZXhwIjoxNTQ3MDQ2NDIxfQ.aprYDxU4Dtw9a4QBx94ITYC4dmwgMAdGyKzevle493wO5x53k6AN1ghdiklWcc--mcz-WkWmt4f3h5TskbqIm5t8cNK3ttwUKd3RvNMBTCtZMJRY4EOA8msYAUhs4vKaVhF9pzZup508A5jGaSnp5iYv_xKHx_0BuKdQFoHFMRRDte3kBK-1imb3l2CXgkDX2bwsPkNALZWSNNfXzMqX6SrSqhxtB2eOthctjknlncTumycm8EOxmux_1NiKVzcxEpV74rE1pzcvDmabKWW6SvnrW9K3TXdrpUdzsyKxfp-2N2Zso3zXb1FzXAPhOmw2Jb2RFbr0pGZIUHx_hmw4EQ',
+        'Authorization': '',
         'Content-Type': 'application/json',
         'Accept': 'application/json'
         }
@@ -55,6 +58,23 @@ data = {
 max_count = 0
 start_time = time.time()
 shutting_down = False
+
+def config_dcos_cluster():
+    global base
+    global headers
+    global default_base
+    global default_auth
+
+    try:
+        url = Popen(["dcos", "config", "show", "core.dcos_url"], stdout=PIPE).communicate()[0].decode('ascii')
+        base = "{}/marathon".format(url[:-1])
+        print("Using DCOS: {}".format(base))
+
+        raw_token = Popen(["dcos", "config", "show", "core.dcos_acs_token"], stdout=PIPE).communicate()[0].decode('ascii')
+        headers['Authorization'] = "token={}".format(raw_token[:-1])
+    except Exception as err:
+        base = default_base
+        headers['Authorization'] = "token={}".format(default_auth)
 
 
 def scale_to(instances, time_delta, force=False):
@@ -218,8 +238,11 @@ It will:
 def main_loop():
     global start_time
 
+    config_dcos_cluster()
+
     app = fetch_app()
     scale_down()
+
 
     start_time = time.time()
     target = 0

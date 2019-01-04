@@ -1,0 +1,51 @@
+{
+  "id": "/hc",
+  "containers": [
+    {
+      "name": "healthtask1",
+      "resources": {
+        "cpus": 0.1,
+        "mem": 32,
+        "disk": 32,
+        "gpus": 0
+      },
+      "exec": {
+        "command": {
+          "shell": "python -m SimpleHTTPServer 8080"
+        }
+      },
+      "endpoints": [
+        {
+          "name": "httpendpoint",
+          "containerPort": 8080,
+          "hostPort": 0,
+          "protocol": [
+            "tcp"
+          ]
+        }
+      ],
+      "image": {
+        "kind": "DOCKER",
+        "id": "python:2"
+      },
+      "healthCheck": {
+        "http": {
+          "scheme": "HTTP",
+          "endpoint": "httpendpoint",
+          "path": "/"
+        }
+      }
+    }
+  ],
+  "networks": [
+    {
+      "name": "dcos",
+      "mode": "container"
+    }
+  ],
+  "executorResources": {
+    "cpus": 0.1,
+    "mem": 32,
+    "disk": 10
+  }
+}

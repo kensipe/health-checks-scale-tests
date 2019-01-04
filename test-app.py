@@ -43,7 +43,7 @@ states = [
         ]
 
 data = {
-        'TASK_HEALTHY': {'count': [], 'color': 'darksage'},
+        'TASK_HEALTHY': {'count': [], 'color': 'darkgreen'},
         'TASK_RUNNING': {'count': [], 'color': 'steelblue'},
         'TASK_STAGING': {'count': [], 'color': '0.55'},
         'TASK_UNHEALTHY': {'count': [], 'color': 'indianred'},
@@ -180,8 +180,6 @@ It will:
        complete.
     3. Go back to the previous step.
 """
-
-
 def main_loop():
     global start_time
 
@@ -213,8 +211,6 @@ def main_loop():
 
 The deployment is forced, overriding any other pending deployments.
 """
-
-
 def scale_down():
     time_delta = int(time.time() - start_time)
 

@@ -43,7 +43,7 @@ states = [
         ]
 
 data = {
-        'TASK_HEALTHY': {'count': [], 'color': 'darksage'},
+        'TASK_HEALTHY': {'count': [], 'color': 'darkgreen'},
         'TASK_RUNNING': {'count': [], 'color': 'steelblue'},
         'TASK_STAGING': {'count': [], 'color': '0.55'},
         'TASK_UNHEALTHY': {'count': [], 'color': 'indianred'},
@@ -166,7 +166,9 @@ def process_results(app):
 
 
 def plot(time_delta):
+
     fig = plt.figure(dpi=100, figsize=(10.24, 7.68))
+
     ax = plt.subplot(111)
 
     num_requests = len(data[states[0]]['count'])
@@ -176,13 +178,13 @@ def plot(time_delta):
     for state in states:
         counts = np.array(data[state]['count'])
         color = data[state]['color']
-        ax.bar(ind, counts, 0.75, color=color, linewidth=0, bottom=bottom)
 
+        ax.bar(ind, counts, 0.75, color=color, linewidth=0, bottom=bottom)
         bottom = bottom + counts
 
     plt.title(title)
 
-    plt.xlim(xmin=0, xmax=num_requests + 1)
+    plt.xlim(left=0, right=num_requests + 1)
     plt.xlabel('Request #')
 
     plt.ylabel('Number of tasks')
@@ -213,8 +215,6 @@ It will:
        complete.
     3. Go back to the previous step.
 """
-
-
 def main_loop():
     global start_time
 
@@ -235,11 +235,11 @@ def main_loop():
                 scale_to(target, time_delta)
 
             print_task_summary(app, time_delta)
-            # if not shutting_down:
-            #     # next 3 lines use intertools / matplotlib which isn't set for pods
-            #     process_results(app)
-            #     plot(time_delta)
-            #     dump_app(app, time_delta)
+            if not shutting_down:
+                # next 3 lines use intertools / matplotlib which isn't set for pods
+                process_results(app)
+                plot(time_delta)
+                dump_app(app, time_delta)
         except Exception as err:
             print(err)
 
